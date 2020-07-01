@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-160301714-2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-160301714-2');
+    </script>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment-with-locales.min.js"></script>
+    <!-- <script type="text/javascript" src="http://dapi.kakao.com/v2/maps/sdk.js?appkey=eeaf5c13b3e9573d87dd44a626f38d09"></script> -->
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=eeaf5c13b3e9573d87dd44a626f38d09"></script>
+    <link href="https://fonts.googleapis.com/css?family=Overlock:900&display=swap" rel="stylesheet">
+    <script src="distance.js"></script>
+    <link href="stylec.css" rel="stylesheet">
+    <title>2km Mask</title>
+  </head>
+  <body>
+<header class="header">
+    <div class="header__title">
+        <span>2mask.co 😷</span>
+        <!-- <div>2km 내의 공적마스크 재고 찾기</div> -->
+    </div>
+    <div class='header__updatedAt'>마지막 갱신<br><span></span></div>
+    <div class='header-tabs'>
+        <div class="header-tabs__tab1 header-tabs__tabs">리스트<div class="header-tabs__tabBar" style></div></div>
+        <div class="header-tabs__tab2 header-tabs__tabs">지도보기<div class="header-tabs__tabBar" style="display: none;"></div></div>
+        <div class="header-tabs__tab3 header-tabs__tabs">안내<div class="header-tabs__tabBar" style="display: none;"></div></div>
+        <div class="header-tabs__option header-tabs__tabs">재고있음</div>
+    </div>
+</header>
+<main>
+    <div id="tabList">
+        <ul></ul>
+        <div class="loader">Loading...</div>
+        <div id="notice" class="notice__alert">
+            <div>
+            ⏰ 마스크 재고 현황은 실제 판매처 현황과 5-10분 정도 차이가 있을 수 있습니다.<br><br>
+            🙏🏼 공적 마스크 서비스 시 어려운 환경에서도 일선에서 공헌해 주시는 약사님, 우체국 종사자분, 하나로 마트(예정)분들께도 감사와 응원 드립니다.
+            </div>
+            <div class="notice__footer">🍄 현재 데이터 제공처의 서비스 및 이 서비스는 베타서비스입니다.<br>
+            📡 데이터 출처 : 심평원‧정보화진흥원(공공데이터포털)<br>
+            🙂 <a href="mailto:sungi.kim@gmail.com?Subject=2kmMask">by tim</a></div>
+        </div>
+    </div>
+    <div id="tabMap">
+        <div id="map"></div>
+        <div class="mapWaiting" style="display: none;">아직 데이터를 불러오지 못했습니다.<br>리스트가 표시된 후 지도를 봐주세요.</div>
+    </div>
+    <div id="tabInfo">
+        <div class="tabInfo__notice">
+            <div>
+            🧭 2km 내의 공적마스크 재고를 찾아줍니다.<br><br>
+            ⏰ 마스크 재고 현황은 실제 판매처 현황과 5-10분 정도 차이가 있을 수 있습니다.<br><br>
+            🙏🏼 공적 마스크 서비스 시 어려운 환경에서도 일선에서 공헌해 주시는 약사님, 우체국 종사자분, 하나로 마트(예정)분들께도 감사와 응원 드립니다.
+            </div>
+            <div class="notice__footer">🍄 현재 데이터 제공처의 서비스 및 이 서비스는 베타서비스입니다.<br>
+            📡 데이터 출처 : 심평원‧정보화진흥원(공공데이터포털)<br>
+            🙂 <a href="mailto:sungi.kim@gmail.com?Subject=2kmMask">by tim</a></div>
+        </div>
+    </div>
+</main>
+<div class="restore">
+    현재 위치로 돌아가기 
+</div>
+<div class="overlay">
+</div>
+<div id="sheetList" class="overlay-bottomSheet"></div>
+<div id="sheetMap" class="overlay-bottomSheet"></div>
+
+<script>
+moment.locale("ko");
+var aa =moment("2020/03/12 04:47:00", "YYYY/MM/DD HH:mm:ss").fromNow();
+console.log(aa)
+
+var alat
+var alng
+var LatLng = [], localLatLng = [], mapLatLng = []
+var listArr = []
+$(document).ready(function () {
+    $('html, body').animate({
+        scrollTop: ($('.header').offset().top)
+    }, 500);    
+    setTimeout(function(){ 
+        $("#notice").removeClass("notice__alert")
+    }, 1000);
+});
+
+var stickyHeaderVal = $(".header-tabs").offset().top;
+window.onscroll = function() {
+    if (window.pageYOffset > stickyHeaderVal) {
+    $(".header-tabs").addClass("sticky")
+  } else {
+    $(".header-tabs").removeClass("sticky")
+  }  
+};
+
+async function getGeo() {
+    return new Promise((resolve, reject) => {
+        if(navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                geo = [position.coords.latitude,position.coords.longitude]
+                localLatLng = geo
+                LatLng = geo
+                return resolve(geo)
+            }, function(error) {
+                alert("현재위치를 받아오는데 실패했습니다");
+            });
+        } else {
+            alert("현재위치찾기를 지원하지 않는 브라우저 입니다. 혹은 설정에서 위치정보 접근 권한을 허용해주세요");
+        }
+    })
+}
+
+
+let request = new XMLHttpRequest();
+
+async function getData(base) {
+    let geoArr
+    // let geoArr = await getGeo()
+    if (base) {
+        geoArr = base
+        console.log("base")
+    }
+    else {
+        geoArr = await getGeo()
+        console.log("local")
+    }
+    // switch(base) {
+    //     case "": geoArr = await getGeo();break;
+    //     case "map": geoArr = mapLatLng;break;
+    // }
+    let url = `https://8oi9s0nnth.apigw.ntruss.com/corona19-masks/v1/storesByGeo/json?lat=${geoArr[0]}&lng=${geoArr[1]}&m=2000`
+    let response = await fetch(url)
+    let data = await response.json()
+    let result = data.stores
+    return result
+}
+
+getData()
+    .then(list => {
+        renderData(list)
+    })
+
+function renderData(list) {
+    $("document").find("li").remove()
+    $(".loader").hide()
+        for(i in list) {
+            let distance = Math.round(LatLngDist(localLatLng[0],localLatLng[1],list[i].lat,list[i].lng) * 100) / 100
+            let stat, statCat, typeStr
+            switch(list[i].remain_stat) {
+                case "plenty": stat = "100개 이상";statCat = 4;break;
+                case "some": stat = "30~100개";statCat = 3;break;
+                case "few": stat = "2~30개";statCat = 2;break;
+                case "empty": stat = "없음";statCat = 1;break;
+                default: stat = "정보없음";statCat = 0;break;
+            }
+            switch(list[i].type) {
+                case "01": typeStr = "약국";break;
+                case "02": typeStr = "우체국";break;
+                case "03": typeStr = "농협";break;
+                default: typeStr = "정보없음";break;
+            }
+            list[i]["distance"] = distance
+            list[i]["stat"] = stat
+            list[i]["statCat"] = statCat
+            list[i]["typeStr"] = typeStr
+
+            if (list[i].stock_at) {
+                list[i]["stockTime"] = moment(list[i].stock_at, "YYYY/MM/DD HH:mm:ss").fromNow()
+            }
+            else {list[i]["stockTime"] = '정보없음'}
+        }
+        list.sort(function(a, b) {
+            return a["distance"] - b["distance"];
+        });
+        $("ul").empty()
+        for(i in list) {
+            let card = `<li data-statcat="${list[i].statCat}" data-name="${list[i].name}" data-lat="${list[i].lat}" data-lng="${list[i].lng}" data-addr="${list[i].addr}" data-distance="${list[i].distance}" data-stocktime="${list[i].stockTime}" data-stat="${list[i].stat}">
+                            <div class="card-header">
+                                <div class="card-header__name">${list[i].name}</div>
+                                <div class="card-header__distance">${list[i].distance}<span>km</span></div>
+                            </div>
+                            <div class="card-addr">${list[i].addr}</div>
+                            <div class="card-footer">
+                                <div class="card-footer-stat">
+                                    <div class="card-footer-stat__bar"></div>
+                                    <div class="card-footer-stat__text">재고 : ${list[i].stat}</div>
+                                </div>
+                                <div class="card-footer__stockAt">미자막 입고 :  ${list[i].stockTime}</div>
+                            </div>
+                        </li>`
+            $("ul").append(card);
+        }
+        $("li").each(function(){
+            switch($(this).data("statcat")) {
+                case 0 : $(this).addClass('none');break;
+                case 1 : $(this).addClass('none');break;
+                case 2 : $(this).find('.card-footer-stat__bar').addClass("red");break;
+                case 3 : $(this).find('.card-footer-stat__bar').addClass("yellow");break;
+                case 4 : $(this).find('.card-footer-stat__bar').addClass("green");break;
+            }
+
+        })
+        listArr = list
+        for (i in list) {
+            if(list[0].created_at){
+                $(".header__updatedAt").find("span").text(list[0].created_at.substr(0,16))
+                break;
+            }
+        }
+        $("li").click(function(){
+            let name = $(this).data("name")
+            let distance = $(this).data("distance")
+            let stat = $(this).data("stat")
+            let addr = $(this).data("addr")
+            let stockTime = $(this).data("stocktime")
+            let lat = $(this).data("lat")
+            let lng = $(this).data("lng")
+            let color
+            switch($(this).data("statcat")) {
+                case 0 : color = "gray";break;
+                case 1 : color = "gray";break;
+                case 2 : color = "red";break;
+                case 3 : color = "yellow";break;
+                case 4 : color = "green";break;
+            }
+            let kakaomap = `kakaomap://search?q=${name}&p=${lat},${lng}`
+            let navermap = encodeURI("nmap://search?query=" + name)
+            $(".overlay").show();
+            $("#sheetList").html(sheetHTML(name,distance,addr,color,stat,stockTime))
+            $("#sheetList").show();
+            $("#sheetList").find('.btnKakao').data('url', kakaomap);
+            $("#sheetList").find('.btnNaver').data('url', navermap);
+            $("#sheetList").append("<div id='miniMap'></div>");
+            miniMap(lat,lng,color,stat)
+            $(".btnMap").click(function() {
+                let url = $(this).data('url')
+                location.href = url
+            })
+        })
+}
+
+$(".header-tabs__tab2").click(function() {
+    $("#tabMap").siblings().hide()
+    $("#tabMap").show()
+    if(listArr[0]) {
+        $(".header-tabs__tabs").find(".header-tabs__tabBar").hide()
+        $(this).find(".header-tabs__tabBar").show()
+        $("header").addClass("header__moveTop")
+        renderMap(listArr)
+    }
+    else{
+        $(".mapWaiting").show()
+    }
+})
+$(".header-tabs__tab1").click(function() {
+    $("#tabList").siblings().hide()
+    $("#tabList").show()
+    $(".header-tabs__tabs").find(".header-tabs__tabBar").hide()
+    $(this).find(".header-tabs__tabBar").show()
+    $("header").removeClass("header__moveTop")
+    $("#map").empty()
+})
+$(".header-tabs__tab3").click(function() {
+    $("#tabInfo").siblings().hide()
+    $("#tabInfo").show()
+    $(".header-tabs__tabs").find(".header-tabs__tabBar").hide()
+    $(this).find(".header-tabs__tabBar").show()
+    $("header").removeClass("header__moveTop")
+    $("#map").empty()
+})
+
+
+function showSheet(dd) {
+    $(".overlay").show();
+    $("#sheetMap").show();
+    console.log(dd)
+    let name = dd.data("name")
+    let distance = dd.data("distance")
+    let stat = dd.data("stat")
+    let addr = dd.data("addr")
+    let stockTime = dd.data("stocktime")
+    let lat = dd.data("lat")
+    let lng = dd.data("lng")
+    let color
+    switch(dd.data("statcat")) {
+        case 0 : color = "gray";break;
+        case 1 : color = "gray";break;
+        case 2 : color = "red";break;
+        case 3 : color = "yellow";break;
+        case 4 : color = "green";break;
+    }
+
+    $("#sheetMap").html(sheetHTML(name,distance,addr,color,stat,stockTime))
+    let kakaomap = `kakaomap://search?q=${name}&p=${lat},${lng}`
+    let navermap = encodeURI("nmap://search?query=" + name)
+    $(".overlay").show();
+    $("sheetMap").show();
+    $("#sheetMap").find('.btnKakao').data('url', kakaomap);
+    $("#sheetMap").find('.btnNaver').data('url', navermap);
+    $(".btnMap").click(function() {
+    let url = $(this).data('url')
+    location.href = url
+})
+    
+}
+
+function sheetHTML(name,distance,addr,color,stat,stockTime){
+    let sheet = `<div class="sheetMap__card">
+        <div class="card-header">
+            <div class="card-header__name">${name}</div>
+            <div class="card-header__distance">${distance}<span>km</span></div>
+        </div>
+        <div class="card-addr">${addr}</div>
+        <div class="card-footer">
+            <div class="card-footer-stat">
+                <div class="card-footer-stat__bar ${color}"></div>
+                <div class="card-footer-stat__text">재고 : ${stat}</div>
+            </div>
+            <div class="card-footer__stockAt">미자막 입고 :  ${stockTime}</div>
+        </div>
+    </div>
+    <div class="buttonGroup">
+        <div class="btnKakao btnMap">카카오맵</div>
+        <div class="btnNaver btnMap">네이버맵</div>
+        </div>`
+    return sheet
+}
+
+function miniMap(lat,lng,color,stat) {
+    var points = [
+        new kakao.maps.LatLng(localLatLng[0],localLatLng[1]),
+        new kakao.maps.LatLng(lat,lng)
+    ]
+    var bounds = new kakao.maps.LatLngBounds()
+    
+    var mapContainer = document.getElementById('miniMap'), 
+    mapOption = { 
+        center: points[0],
+        level: 3 
+    }; 
+
+    // 현재 위치 찍기
+    var map = new kakao.maps.Map(mapContainer, mapOption);
+    var content = `
+        <div class ="map__currentPosition">🙂</div>`  
+    var customOverlay = new kakao.maps.CustomOverlay({
+        position: points[0],
+        content: content   
+        });
+    customOverlay.setMap(map);
+    bounds.extend(points[0]);
+    // 현재 위치 찍기 - 끝
+
+    var content = `
+        <div class="map__label ${color}">${stat}</div>`
+    var customOverlay = new kakao.maps.CustomOverlay({
+        position: points[1],
+        content: content   
+        });
+    customOverlay.setMap(map);
+    bounds.extend(points[1]);
+
+    
+    map.setBounds(bounds);
+}
+
+function renderMap(list) {
+    var mapContainer = document.getElementById('map'), 
+    mapOption = { 
+        center: new kakao.maps.LatLng(LatLng[0], LatLng[1]),
+        level: 3 
+    }; 
+
+    // 현재 위치 찍기
+    var map = new kakao.maps.Map(mapContainer, mapOption);
+    var content = `
+        <div class ="map__currentPosition">🙂</div>`
+    var position = new kakao.maps.LatLng(LatLng[0], LatLng[1]);  
+    var customOverlay = new kakao.maps.CustomOverlay({
+        position: position,
+        content: content   
+        });
+    customOverlay.setMap(map);
+    // 현재 위치 찍기 - 끝
+
+    // 모든 마커 찍기
+    for(i in list) {
+        let color
+        switch(list[i].statCat) {
+            case 0 : color = "gray";break;
+            case 1 : color = "gray";break;
+            case 2 : color = "red";break;
+            case 3 : color = "yellow";break;
+            case 4 : color = "green";break;
+        }
+        var content = `
+            <div onclick="showSheet($(this))" class="map__label ${color}" data-lat="${list[i].lat}" data-lng="${list[i].lng}" data-name="${list[i].name}" data-statcat="${list[i].statCat}" data-stat="${list[i].stat}" data-stocktime="${list[i].stockTime}" data-distance="${list[i].distance}" data-addr="${list[i].addr}">${list[i].stat}</div>`
+        var position = new kakao.maps.LatLng(list[i].lat, list[i].lng);  
+        var customOverlay = new kakao.maps.CustomOverlay({
+            position: position,
+            content: content   
+            });
+        customOverlay.setMap(map);
+    }
+    // 모든 마커 찍기 - 끝
+    kakao.maps.event.addListener(map, 'zoom_changed', function() {    
+        var level = map.getLevel();
+        if(level > 4) {
+            $(".map__label.gray").hide();
+        }
+        else {
+            $(".map__label.gray").show()
+        }
+    })
+    kakao.maps.event.addListener(map, 'dragend', function() {
+            var latlng = map.getCenter()
+            mapLatLng = [latlng.getLat(),latlng.getLng()]
+            LatLng = mapLatLng
+            getData(mapLatLng)
+            .then(list => {
+                renderData(list)
+                renderMapUpdate(list, mapLatLng)
+            })
+            
+            $(".restore").show()
+
+    });
+    function renderMapUpdate(updatelist, centerLatLng) {
+        $(".map__label").remove()
+        $(".map__currentPosition").remove()
+        var content = `<div class ="map__currentPosition">🙂</div>`
+        var position = new kakao.maps.LatLng(centerLatLng[0], centerLatLng[1]);  
+        map.setCenter(position);
+        var customOverlay = new kakao.maps.CustomOverlay({
+            position: position,
+            content: content   
+            });
+        customOverlay.setMap(map);
+        // 모든 마커 찍기
+        for(i in updatelist) {
+            let color
+            switch(updatelist[i].statCat) {
+                case 0 : color = "gray";break;
+                case 1 : color = "gray";break;
+                case 2 : color = "red";break;
+                case 3 : color = "yellow";break;
+                case 4 : color = "green";break;
+            }
+            var content = `
+                <div onclick="showSheet($(this))" class="map__label ${color}" data-lat="${updatelist[i].lat}" data-lng="${updatelist[i].lng}" data-name="${updatelist[i].name}" data-statcat="${updatelist[i].statCat}" data-stat="${updatelist[i].stat}" data-stocktime="${updatelist[i].stockTime}" data-distance="${updatelist[i].distance}" data-addr="${updatelist[i].addr}">${updatelist[i].stat}</div>`
+            var position = new kakao.maps.LatLng(updatelist[i].lat, updatelist[i].lng);  
+            var customOverlay = new kakao.maps.CustomOverlay({
+                position: position,
+                content: content   
+                });
+            customOverlay.setMap(map);
+        }
+        setTimeout(function(){
+            var level = map.getLevel();
+            if(level > 4) {
+                $(".map__label.gray").hide();
+            }
+            else {
+                $(".map__label.gray").show()
+            }
+        }, 1500);
+        
+        $(".restore").click(function() {
+        getData()
+            .then(list => {
+                $("#map > div").remove()
+                renderData(list)
+                renderMap(list)
+            })
+            $(".restore").hide()
+         })
+        // 모든 마커 찍기 - 끝
+    }
+}
+
+
+$(".overlay").click(function() {
+    $(".overlay").hide();
+    $(".overlay-bottomSheet").hide();
+})
+
+
+$(".header-tabs__option").click(function() {
+    $(this).toggleClass("activate")
+    $(".none").toggle();
+    if($(this).hasClass("activate")) {
+        $(".map__label.gray").hide();
+    }
+    else { $(".map__label.gray").show();}
+    
+})
+
+
+
+
+
+</script>
+  </body>
+</html>
